@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 MINGW64
+      - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -27,19 +27,23 @@ jobs:
           install: >-
             base-devel
             git
-            gcc
             make
+            gcc
             nasm
             pkg-config
-            mingw-w64-x86_64-libass
-            mingw-w64-x86_64-freetype
+
+      - name: Install MinGW libs
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm --needed \
+            mingw-w64-x86_64-libass \
+            mingw-w64-x86_64-freetype \
             mingw-w64-x86_64-pcre2
 
-      - name: Verify libass is installed and visible to pkg-config
+      - name: Verify libass is visible
         shell: msys2 {0}
         run: |
           echo "PATH=$PATH"
-          pacman -Q mingw-w64-x86_64-libass || true
           ls /mingw64/lib/pkgconfig | grep libass || true
           pkg-config --modversion libass || true
           pkg-config --list-all | grep -i libass || true
@@ -81,7 +85,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify output
+      - name: Verify outputs
         shell: msys2 {0}
         run: |
           cd "$GITHUB_WORKSPACE"
