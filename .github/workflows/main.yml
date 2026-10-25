@@ -11,9 +11,6 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
 
     steps:
       - name: Checkout source
@@ -22,7 +19,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2
+      - name: Setup MSYS2 UCRT64
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -38,7 +35,19 @@ jobs:
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
 
+      - name: Verify libass is visible
+        shell: msys2 {0}
+        run: |
+          echo "PATH=$PATH"
+          pkg-config --modversion libass || true
+          ls /ucrt64/lib/pkgconfig | grep libass || true
+          ls /ucrt64/bin | grep pkg-config || true
+
       - name: Configure FFmpeg
+        shell: msys2 {0}
+        env:
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           ./configure \
@@ -58,11 +67,16 @@ jobs:
             --enable-protocol=file
 
       - name: Build
+        shell: msys2 {0}
+        env:
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
       - name: Verify output
+        shell: msys2 {0}
         run: |
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe
