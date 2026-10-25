@@ -35,17 +35,20 @@ jobs:
             mingw-w64-x86_64-freetype
             mingw-w64-x86_64-pcre2
 
-      - name: Verify libass is available
+      - name: Verify libass is installed and visible to pkg-config
         shell: msys2 {0}
         run: |
           echo "PATH=$PATH"
-          pkg-config --modversion libass
+          pacman -Q mingw-w64-x86_64-libass || true
           ls /mingw64/lib/pkgconfig | grep libass || true
+          pkg-config --modversion libass || true
+          pkg-config --list-all | grep -i libass || true
 
       - name: Configure FFmpeg
         shell: msys2 {0}
         env:
           PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
           PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
@@ -72,12 +75,13 @@ jobs:
         shell: msys2 {0}
         env:
           PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
           PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify outputs
+      - name: Verify output
         shell: msys2 {0}
         run: |
           cd "$GITHUB_WORKSPACE"
