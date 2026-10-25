@@ -1,4 +1,4 @@
-name: FFmpeg Windows GIF exporter build
+name: FFmpeg Windows static GIF exporter build
 
 on:
   workflow_dispatch:
@@ -41,22 +41,24 @@ jobs:
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
 
-      - name: Verify compiler and libass
+      - name: Verify toolchain and static libs
         shell: msys2 {0}
         run: |
           which x86_64-w64-mingw32-gcc
           x86_64-w64-mingw32-gcc --version
           pkg-config --modversion libass
-          ls /ucrt64/lib/pkgconfig | grep libass || true
+          ls /ucrt64/lib | grep libass || true
+          ls /ucrt64/lib | grep "libass.*\\.a" || true
 
-      - name: Configure FFmpeg
+      - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /ucrt64
           CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib
+          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
@@ -72,6 +74,8 @@ jobs:
             --disable-debug \
             --enable-static \
             --disable-shared \
+            --extra-ldflags="-static -static-libgcc -static-libstdc++" \
+            --pkg-config-flags=--static \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif \
             --enable-muxer=gif,image2 \
@@ -86,14 +90,15 @@ jobs:
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /ucrt64
           CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib
+          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify outputs
+      - name: Verify output
         shell: msys2 {0}
         run: |
           cd "$GITHUB_WORKSPACE"
@@ -101,17 +106,13 @@ jobs:
           ./ffmpeg.exe -hide_banner -version | head -n 20
           ./ffprobe.exe -hide_banner -version | head -n 20
 
-      - name: Create zip
-        shell: pwsh
-        run: |
-          Compress-Archive -Path ffmpeg.exe,ffprobe.exe -DestinationPath ffmpeg-gif-subtitles-win64.zip -Force
-
-      - name: Upload to GitHub Release
+      - name: Release raw exe files
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
         with:
-          tag_name: ffmpeg-gif-win-${{ github.run_number }}
-          name: FFmpeg Windows GIF ${{ github.run_number }}
+          tag_name: ffmpeg-gif-win-static-${{ github.run_number }}
+          name: FFmpeg Windows static GIF ${{ github.run_number }}
           files: |
-            ffmpeg-gif-subtitles-win64.zip
+            ffmpeg.exe
+            ffprobe.exe
