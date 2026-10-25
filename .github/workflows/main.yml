@@ -1,4 +1,4 @@
-name: FFmpeg GIF-only build
+name: FFmpeg GIF-only build with libass
 
 on:
   workflow_dispatch:
@@ -23,29 +23,39 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential nasm yasm pkg-config
+          sudo apt-get install -y \
+            build-essential \
+            nasm \
+            yasm \
+            pkg-config \
+            libass-dev \
+            libfreetype6-dev
 
-      - name: Configure FFmpeg for GIF-only build
+      - name: Configure FFmpeg
         run: |
           ./configure \
             --disable-encoders \
             --disable-muxers \
             --disable-devices \
             --disable-filters \
+            --enable-gpl \
+            --enable-libass \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif \
             --enable-muxer=gif,image2 \
-            --enable-filter=scale,fps,palettegen,paletteuse
+            --enable-demuxer=ass,ssa \
+            --enable-parser=ass
 
       - name: Build
         run: |
           make -j"$(nproc)"
 
-      - name: Verify ffmpeg binary
+      - name: Verify build
         run: |
-          ./ffmpeg -hide_banner -version | head
+          ./ffmpeg -hide_banner -version | head -n 20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-gif-only
+          name: ffmpeg-gif-libass
           path: ./ffmpeg
