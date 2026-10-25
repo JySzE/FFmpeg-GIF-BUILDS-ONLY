@@ -19,10 +19,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 UCRT64
+      - name: Setup MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           install: >-
             base-devel
@@ -31,15 +31,22 @@ jobs:
             make
             nasm
             pkg-config
-            mingw-w64-ucrt-x86_64-libass
-            mingw-w64-ucrt-x86_64-freetype
-            mingw-w64-ucrt-x86_64-pcre2
+            mingw-w64-x86_64-libass
+            mingw-w64-x86_64-freetype
+            mingw-w64-x86_64-pcre2
+
+      - name: Verify libass is available
+        shell: msys2 {0}
+        run: |
+          echo "PATH=$PATH"
+          pkg-config --modversion libass
+          ls /mingw64/lib/pkgconfig | grep libass || true
 
       - name: Configure FFmpeg
         shell: msys2 {0}
         env:
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           ./configure \
@@ -64,8 +71,8 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
@@ -78,13 +85,11 @@ jobs:
           ./ffmpeg.exe -hide_banner -version | head -n 20
           ./ffprobe.exe -hide_banner -version | head -n 20
 
-      - name: Upload as GitHub Release
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: windows-gif-libass-${{ github.run_number }}
-          name: FFmpeg Windows GIF build ${{ github.run_number }}
-          draft: false
-          prerelease: false
+          tag_name: ffmpeg-gif-win-${{ github.run_number }}
+          name: FFmpeg Windows GIF ${{ github.run_number }}
           files: |
             ffmpeg.exe
             ffprobe.exe
