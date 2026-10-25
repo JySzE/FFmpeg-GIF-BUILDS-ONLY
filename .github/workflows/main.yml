@@ -1,4 +1,4 @@
-name: FFmpeg GIF-only build with libass
+name: FFmpeg Windows GIF build with libass
 
 on:
   workflow_dispatch:
@@ -9,9 +9,11 @@ on:
         default: ""
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
 
     steps:
       - name: Checkout source
@@ -20,42 +22,54 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            nasm \
-            yasm \
-            pkg-config \
-            libass-dev \
-            libfreetype6-dev
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            git
+            gcc
+            make
+            nasm
+            pkg-config
+            mingw-w64-ucrt-x86_64-libass
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-pcre2
 
       - name: Configure FFmpeg
         run: |
+          cd "$GITHUB_WORKSPACE"
           ./configure \
-            --disable-encoders \
-            --disable-muxers \
-            --disable-devices \
-            --disable-filters \
+            --arch=x86_64 \
+            --target-os=mingw32 \
             --enable-gpl \
             --enable-libass \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
+            --disable-doc \
+            --disable-programs \
+            --disable-everything \
+            --enable-ffmpeg \
             --enable-encoder=gif \
             --enable-muxer=gif,image2 \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-demuxer=ass,ssa \
-            --enable-parser=ass
+            --enable-parser=ass \
+            --enable-protocol=file
 
       - name: Build
         run: |
+          cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify build
+      - name: Verify output
         run: |
-          ./ffmpeg -hide_banner -version | head -n 20
+          cd "$GITHUB_WORKSPACE"
+          ls -l ffmpeg.exe
+          ./ffmpeg.exe -hide_banner -version | head -n 20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-gif-libass
-          path: ./ffmpeg
+          name: ffmpeg-win64-gif-libass
+          path: ffmpeg.exe
