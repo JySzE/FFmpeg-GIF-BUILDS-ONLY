@@ -1,4 +1,4 @@
-name: FFmpeg Windows GIF build with libass
+name: FFmpeg Windows GIF build with libass + release
 
 on:
   workflow_dispatch:
@@ -35,14 +35,6 @@ jobs:
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
 
-      - name: Verify libass is visible
-        shell: msys2 {0}
-        run: |
-          echo "PATH=$PATH"
-          pkg-config --modversion libass || true
-          ls /ucrt64/lib/pkgconfig | grep libass || true
-          ls /ucrt64/bin | grep pkg-config || true
-
       - name: Configure FFmpeg
         shell: msys2 {0}
         env:
@@ -55,10 +47,13 @@ jobs:
             --target-os=mingw32 \
             --enable-gpl \
             --enable-libass \
-            --disable-doc \
-            --disable-programs \
-            --disable-everything \
             --enable-ffmpeg \
+            --enable-ffprobe \
+            --disable-doc \
+            --disable-ffplay \
+            --disable-debug \
+            --enable-static \
+            --disable-shared \
             --enable-encoder=gif \
             --enable-muxer=gif,image2 \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
@@ -75,15 +70,21 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify output
+      - name: Verify outputs
         shell: msys2 {0}
         run: |
           cd "$GITHUB_WORKSPACE"
-          ls -l ffmpeg.exe
+          ls -l ffmpeg.exe ffprobe.exe
           ./ffmpeg.exe -hide_banner -version | head -n 20
+          ./ffprobe.exe -hide_banner -version | head -n 20
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload as GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ffmpeg-win64-gif-libass
-          path: ffmpeg.exe
+          tag_name: windows-gif-libass-${{ github.run_number }}
+          name: FFmpeg Windows GIF build ${{ github.run_number }}
+          draft: false
+          prerelease: false
+          files: |
+            ffmpeg.exe
+            ffprobe.exe
