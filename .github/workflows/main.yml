@@ -1,4 +1,4 @@
-name: FFmpeg Windows GIF build with libass + release
+name: FFmpeg Windows GIF exporter build
 
 on:
   workflow_dispatch:
@@ -31,34 +31,31 @@ jobs:
             gcc
             nasm
             pkg-config
-
-      - name: Install MinGW libs
-        shell: msys2 {0}
-        run: |
-          pacman -S --noconfirm --needed \
-            mingw-w64-x86_64-libass \
-            mingw-w64-x86_64-freetype \
+            mingw-w64-x86_64-libass
+            mingw-w64-x86_64-freetype
             mingw-w64-x86_64-pcre2
 
-      - name: Verify libass is visible
+      - name: Verify libass
         shell: msys2 {0}
         run: |
-          echo "PATH=$PATH"
+          pkg-config --modversion libass
           ls /mingw64/lib/pkgconfig | grep libass || true
-          pkg-config --modversion libass || true
-          pkg-config --list-all | grep -i libass || true
 
       - name: Configure FFmpeg
         shell: msys2 {0}
         env:
+          PKG_CONFIG: /mingw64/bin/pkg-config
           PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
           PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib
           PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           ./configure \
             --arch=x86_64 \
             --target-os=mingw32 \
+            --cross-prefix=x86_64-w64-mingw32- \
             --enable-gpl \
             --enable-libass \
             --enable-ffmpeg \
@@ -68,30 +65,31 @@ jobs:
             --disable-debug \
             --enable-static \
             --disable-shared \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif \
             --enable-muxer=gif,image2 \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
-            --enable-demuxer=ass,ssa \
-            --enable-parser=ass \
+            --enable-demuxer=ass,ssa,srt,vtt,webvtt,pgssub,hdmv_pgs_subtitle,dvdsub,mov_text \
+            --enable-parser=ass,webvtt \
+            --enable-decoder=ass,ssa,subrip,webvtt,pgssub,dvdsub,hdmv_pgs_subtitle \
             --enable-protocol=file
 
       - name: Build
         shell: msys2 {0}
         env:
+          PKG_CONFIG: /mingw64/bin/pkg-config
           PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
           PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib
           PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify outputs
-        shell: msys2 {0}
+      - name: Create zip
+        shell: pwsh
         run: |
-          cd "$GITHUB_WORKSPACE"
-          ls -l ffmpeg.exe ffprobe.exe
-          ./ffmpeg.exe -hide_banner -version | head -n 20
-          ./ffprobe.exe -hide_banner -version | head -n 20
+          Compress-Archive -Path ffmpeg.exe,ffprobe.exe -DestinationPath ffmpeg-gif-subtitles-win64.zip -Force
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -99,5 +97,4 @@ jobs:
           tag_name: ffmpeg-gif-win-${{ github.run_number }}
           name: FFmpeg Windows GIF ${{ github.run_number }}
           files: |
-            ffmpeg.exe
-            ffprobe.exe
+            ffmpeg-gif-subtitles-win64.zip
