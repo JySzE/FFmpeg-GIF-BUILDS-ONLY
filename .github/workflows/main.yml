@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2
+      - name: Setup MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -31,15 +31,18 @@ jobs:
             gcc
             nasm
             pkg-config
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
             mingw-w64-x86_64-libass
             mingw-w64-x86_64-freetype
             mingw-w64-x86_64-pcre2
 
-      - name: Verify libass
+      - name: Verify compiler and libass
         shell: msys2 {0}
         run: |
+          which x86_64-w64-mingw32-gcc
+          x86_64-w64-mingw32-gcc --version
           pkg-config --modversion libass
-          ls /mingw64/lib/pkgconfig | grep libass || true
 
       - name: Configure FFmpeg
         shell: msys2 {0}
@@ -55,7 +58,6 @@ jobs:
           ./configure \
             --arch=x86_64 \
             --target-os=mingw32 \
-            --cross-prefix=x86_64-w64-mingw32- \
             --enable-gpl \
             --enable-libass \
             --enable-ffmpeg \
