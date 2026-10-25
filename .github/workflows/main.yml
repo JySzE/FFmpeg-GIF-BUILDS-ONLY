@@ -1,0 +1,51 @@
+name: FFmpeg GIF-only build
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch/tag/commit to build (optional)"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential nasm yasm pkg-config
+
+      - name: Configure FFmpeg for GIF-only build
+        run: |
+          ./configure \
+            --disable-encoders \
+            --disable-muxers \
+            --disable-devices \
+            --disable-filters \
+            --enable-encoder=gif \
+            --enable-muxer=gif,image2 \
+            --enable-filter=scale,fps,palettegen,paletteuse
+
+      - name: Build
+        run: |
+          make -j"$(nproc)"
+
+      - name: Verify ffmpeg binary
+        run: |
+          ./ffmpeg -hide_banner -version | head
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-gif-only
+          path: ./ffmpeg
