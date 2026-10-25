@@ -8,6 +8,9 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -19,11 +22,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 MINGW64
+      - name: Setup MSYS2 UCRT64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
+          suppress-deprecation-warnings: true
           install: >-
             base-devel
             git
@@ -31,11 +35,11 @@ jobs:
             gcc
             nasm
             pkg-config
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-binutils
-            mingw-w64-x86_64-libass
-            mingw-w64-x86_64-freetype
-            mingw-w64-x86_64-pcre2
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-libass
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-pcre2
 
       - name: Verify compiler and libass
         shell: msys2 {0}
@@ -43,16 +47,17 @@ jobs:
           which x86_64-w64-mingw32-gcc
           x86_64-w64-mingw32-gcc --version
           pkg-config --modversion libass
+          ls /ucrt64/lib/pkgconfig | grep libass || true
 
       - name: Configure FFmpeg
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /mingw64/bin/pkg-config
-          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          CPPFLAGS: -I/mingw64/include
-          LDFLAGS: -L/mingw64/lib
-          PATH: /mingw64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          CPPFLAGS: -I/ucrt64/include
+          LDFLAGS: -L/ucrt64/lib
+          PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           ./configure \
@@ -78,15 +83,23 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /mingw64/bin/pkg-config
-          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          CPPFLAGS: -I/mingw64/include
-          LDFLAGS: -L/mingw64/lib
-          PATH: /mingw64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          CPPFLAGS: -I/ucrt64/include
+          LDFLAGS: -L/ucrt64/lib
+          PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
+
+      - name: Verify outputs
+        shell: msys2 {0}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          ls -l ffmpeg.exe ffprobe.exe
+          ./ffmpeg.exe -hide_banner -version | head -n 20
+          ./ffprobe.exe -hide_banner -version | head -n 20
 
       - name: Create zip
         shell: pwsh
@@ -95,6 +108,8 @@ jobs:
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
         with:
           tag_name: ffmpeg-gif-win-${{ github.run_number }}
           name: FFmpeg Windows GIF ${{ github.run_number }}
