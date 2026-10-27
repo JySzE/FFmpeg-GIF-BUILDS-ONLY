@@ -67,11 +67,20 @@ jobs:
           cd "$GITHUB_WORKSPACE"
 
           mkdir -p deps
-          if [ ! -d deps/libplacebo ]; then
-            git clone --depth 1 https://github.com/haasn/libplacebo.git deps/libplacebo
+
+          if [ ! -d deps/libplacebo/.git ]; then
+            git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/haasn/libplacebo.git deps/libplacebo
+          else
+            git -C deps/libplacebo submodule sync --recursive
+            git -C deps/libplacebo submodule update --init --recursive --depth 1
           fi
 
           mkdir -p /opt
+
+          if [ -d deps/libplacebo-build ]; then
+            meson setup --wipe deps/libplacebo-build
+          fi
+
           meson setup \
             deps/libplacebo-build \
             deps/libplacebo \
