@@ -49,51 +49,58 @@ jobs:
             mingw-w64-ucrt-x86_64-shaderc
             mingw-w64-ucrt-x86_64-vulkan-loader
             mingw-w64-ucrt-x86_64-libwebp
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+            mingw-w64-ucrt-x86_64-python-setuptools
+            mingw-w64-ucrt-x86_64-python-wheel
 
-      - name: Verify MSYS2 library availability
+      - name: Install Python build tooling for UCRT64
         shell: msys2 {0}
         run: |
           set -e
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libwebp
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libass
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion freetype2
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion shaderc || true
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade meson ninja
 
       - name: Build static libplacebo
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
           PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
 
           mkdir -p deps
-          git clone --depth 1 https://github.com/haasn/libplacebo.git deps/libplacebo
+          if [ ! -d deps/libplacebo ]; then
+            git clone --depth 1 https://github.com/haasn/libplacebo.git deps/libplacebo
+          fi
 
           meson setup \
+            deps/libplacebo-build \
+            deps/libplacebo \
             --prefix /opt/libplacebo-static \
             --libdir lib \
             --buildtype release \
             -Ddefault_library=static \
-            deps/libplacebo-build \
-            deps/libplacebo
+            -Dshaderc=enabled \
+            -Dvulkan=enabled
 
           meson compile -C deps/libplacebo-build
           meson install -C deps/libplacebo-build
 
           echo "Checking static libplacebo metadata..."
-          PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
           PKG_CONFIG_PATH=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
           pkg-config --static --modversion libplacebo
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
           PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
           CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
           LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
@@ -127,8 +134,8 @@ jobs:
         shell: msys2 {0}
         env:
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
           PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
           CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
           LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
@@ -140,6 +147,7 @@ jobs:
       - name: Verify output
         shell: msys2 {0}
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe ffprobe.exe
           ./ffmpeg.exe -hide_banner -version | head -n 20
@@ -148,6 +156,7 @@ jobs:
       - name: Package artifacts
         shell: msys2 {0}
         run: |
+          set -e
           mkdir -p artifacts
           zip artifacts/ffmpeg-win64-static.zip ffmpeg.exe ffprobe.exe
 
