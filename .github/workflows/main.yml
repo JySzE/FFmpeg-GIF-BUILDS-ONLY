@@ -36,11 +36,13 @@ jobs:
             git
             make
             gcc
+            g++
             nasm
             pkg-config
             zip
             upx
             mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-g++
             mingw-w64-ucrt-x86_64-binutils
             mingw-w64-ucrt-x86_64-libass
             mingw-w64-ucrt-x86_64-freetype
@@ -54,17 +56,30 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-graphite2
+            mingw-w64-ucrt-x86_64-harfbuzz
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
           PATH: /ucrt64/bin:/usr/bin:$PATH
+          CC: /ucrt64/bin/x86_64-w64-mingw32-gcc
+          CXX: /ucrt64/bin/x86_64-w64-mingw32-g++
+          LD: /ucrt64/bin/x86_64-w64-mingw32-g++
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
           CPPFLAGS: -I/ucrt64/include
           CFLAGS: -O2 -Os -ffunction-sections -fdata-sections
-          LDFLAGS: -L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections
+          CXXFLAGS: -O2 -Os -ffunction-sections -fdata-sections
+          LDFLAGS: >-
+            -L/ucrt64/lib
+            -s
+            -static
+            -static-libgcc
+            -static-libstdc++
+            -Wl,--gc-sections
+            -lstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -88,7 +103,8 @@ jobs:
             --enable-ffprobe \
             --pkg-config-flags=--static \
             --extra-cflags="-I/ucrt64/include -O2 -Os -ffunction-sections -fdata-sections" \
-            --extra-ldflags="-L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections" \
+            --extra-cxxflags="-I/ucrt64/include -O2 -Os -ffunction-sections -fdata-sections" \
+            --extra-ldflags="-L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections -lstdc++" \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
@@ -99,12 +115,23 @@ jobs:
         shell: msys2 {0}
         env:
           PATH: /ucrt64/bin:/usr/bin:$PATH
+          CC: /ucrt64/bin/x86_64-w64-mingw32-gcc
+          CXX: /ucrt64/bin/x86_64-w64-mingw32-g++
+          LD: /ucrt64/bin/x86_64-w64-mingw32-g++
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
           CPPFLAGS: -I/ucrt64/include
           CFLAGS: -O2 -Os -ffunction-sections -fdata-sections
-          LDFLAGS: -L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections
+          CXXFLAGS: -O2 -Os -ffunction-sections -fdata-sections
+          LDFLAGS: >-
+            -L/ucrt64/lib
+            -s
+            -static
+            -static-libgcc
+            -static-libstdc++
+            -Wl,--gc-sections
+            -lstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
