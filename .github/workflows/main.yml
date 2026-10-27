@@ -39,6 +39,7 @@ jobs:
             nasm
             pkg-config
             zip
+            upx
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-binutils
             mingw-w64-ucrt-x86_64-libass
@@ -62,7 +63,8 @@ jobs:
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
           CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
+          CFLAGS: -O2 -Os -ffunction-sections -fdata-sections
+          LDFLAGS: -L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -71,18 +73,22 @@ jobs:
             --arch=x86_64 \
             --target-os=mingw32 \
             --enable-gpl \
-            --enable-libass \
-            --enable-libwebp \
-            --enable-ffmpeg \
-            --enable-ffprobe \
-            --disable-doc \
-            --disable-ffplay \
-            --disable-debug \
             --enable-static \
             --disable-shared \
+            --enable-libass \
+            --enable-libwebp \
+            --enable-small \
+            --disable-doc \
+            --disable-debug \
+            --disable-autodetect \
+            --disable-network \
+            --disable-iconv \
+            --disable-ffplay \
+            --enable-ffmpeg \
+            --enable-ffprobe \
             --pkg-config-flags=--static \
-            --extra-cflags="-I/ucrt64/include" \
-            --extra-ldflags="-L/ucrt64/lib -static -static-libgcc -static-libstdc++" \
+            --extra-cflags="-I/ucrt64/include -O2 -Os -ffunction-sections -fdata-sections" \
+            --extra-ldflags="-L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections" \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
@@ -97,11 +103,28 @@ jobs:
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
           CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
+          CFLAGS: -O2 -Os -ffunction-sections -fdata-sections
+          LDFLAGS: -L/ucrt64/lib -s -static -static-libgcc -static-libstdc++ -Wl,--gc-sections
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
+
+      - name: Strip binaries
+        shell: msys2 {0}
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          x86_64-w64-mingw32-strip --strip-unneeded ffmpeg.exe ffprobe.exe || strip --strip-unneeded ffmpeg.exe ffprobe.exe || true
+          ls -lh ffmpeg.exe ffprobe.exe
+
+      - name: Compress with UPX
+        shell: msys2 {0}
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          upx --best --ultra-brute ffmpeg.exe ffprobe.exe || true
+          ls -lh ffmpeg.exe ffprobe.exe
 
       - name: Verify output
         shell: msys2 {0}
@@ -129,4 +152,3 @@ jobs:
             artifacts/ffmpeg-win64-static.zip
             ffmpeg.exe
             ffprobe.exe
-
