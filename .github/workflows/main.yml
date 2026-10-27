@@ -39,6 +39,8 @@ jobs:
             gcc
             nasm
             pkg-config
+            meson
+            ninja
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-binutils
             mingw-w64-ucrt-x86_64-libass
@@ -46,25 +48,57 @@ jobs:
             mingw-w64-ucrt-x86_64-pcre2
             mingw-w64-ucrt-x86_64-shaderc
             mingw-w64-ucrt-x86_64-vulkan-loader
-            mingw-w64-ucrt-x86_64-libplacebo
             mingw-w64-ucrt-x86_64-libwebp
 
-      - name: Verify pkg-config state
+      - name: Verify MSYS2 library availability
         shell: msys2 {0}
         run: |
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libplacebo
+          set -e
           PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libwebp
           PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libass
+          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion freetype2
+          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion shaderc || true
+
+      - name: Build static libplacebo
+        shell: msys2 {0}
+        env:
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PATH: /ucrt64/bin:/usr/bin:$PATH
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+
+          mkdir -p deps
+          git clone --depth 1 https://github.com/haasn/libplacebo.git deps/libplacebo
+
+          meson setup \
+            --prefix /opt/libplacebo-static \
+            --libdir lib \
+            --buildtype release \
+            -Ddefault_library=static \
+            deps/libplacebo-build \
+            deps/libplacebo
+
+          meson compile -C deps/libplacebo-build
+          meson install -C deps/libplacebo-build
+
+          echo "Checking static libplacebo metadata..."
+          PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          PKG_CONFIG_PATH=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          pkg-config --static --modversion libplacebo
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
+          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
+          LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
 
           ./configure \
@@ -93,11 +127,13 @@ jobs:
         shell: msys2 {0}
         env:
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
+          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
+          LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
