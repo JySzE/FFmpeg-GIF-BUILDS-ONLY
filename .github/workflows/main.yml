@@ -48,6 +48,9 @@ jobs:
             mingw-w64-ucrt-x86_64-vulkan-loader
             mingw-w64-ucrt-x86_64-lcms2
             mingw-w64-ucrt-x86_64-libwebp
+            mingw-w64-ucrt-x86_64-libdovi
+            mingw-w64-ucrt-x86_64-spirv-cross
+            mingw-w64-ucrt-x86_64-libplacebo
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
             mingw-w64-ucrt-x86_64-python-setuptools
@@ -55,50 +58,6 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
-
-      - name: Build libplacebo in the same toolchain
-        shell: msys2 {0}
-        env:
-          PATH: /ucrt64/bin:/usr/bin:$PATH
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-        run: |
-          set -e
-          cd "$GITHUB_WORKSPACE"
-
-          mkdir -p deps
-
-          if [ ! -d deps/libplacebo/.git ]; then
-            git clone --depth 1 --branch v7.349.0 --recurse-submodules --shallow-submodules https://github.com/haasn/libplacebo.git deps/libplacebo
-          else
-            git -C deps/libplacebo fetch --tags --depth 1 origin
-            git -C deps/libplacebo checkout v7.349.0
-            git -C deps/libplacebo submodule sync --recursive
-            git -C deps/libplacebo submodule update --init --recursive --depth 1
-          fi
-
-          if [ -d deps/libplacebo-build ]; then
-            meson setup --wipe deps/libplacebo-build || true
-          fi
-
-          meson setup \
-            deps/libplacebo-build \
-            deps/libplacebo \
-            --prefix /ucrt64 \
-            --libdir lib \
-            --buildtype release \
-            -Ddefault_library=static \
-            -Dshaderc=enabled \
-            -Dvulkan=enabled \
-            -Dlcms=enabled
-
-          meson compile -C deps/libplacebo-build
-          meson install -C deps/libplacebo-build
-
-          echo "libplacebo pkg-config check"
-          pkg-config --static --modversion libplacebo
-          pkg-config --static --cflags --libs libplacebo
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
