@@ -40,6 +40,8 @@ jobs:
             mingw-w64-ucrt-x86_64-libass
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
+            mingw-w64-ucrt-x86_64-libplacebo
+            mingw-w64-ucrt-x86_64-libwebp
 
       - name: Verify toolchain and static libs
         shell: msys2 {0}
@@ -47,8 +49,11 @@ jobs:
           which x86_64-w64-mingw32-gcc
           x86_64-w64-mingw32-gcc --version
           pkg-config --modversion libass
+          pkg-config --modversion libplacebo
+          pkg-config --modversion libwebp
           ls /ucrt64/lib | grep libass || true
-          ls /ucrt64/lib | grep "libass.*\\.a" || true
+          ls /ucrt64/lib | grep libplacebo || true
+          ls /ucrt64/lib | grep "libwebp.*\.a" || true
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
@@ -67,6 +72,8 @@ jobs:
             --target-os=mingw32 \
             --enable-gpl \
             --enable-libass \
+            --enable-libplacebo \
+            --enable-libwebp \
             --enable-ffmpeg \
             --enable-ffprobe \
             --disable-doc \
@@ -76,12 +83,12 @@ jobs:
             --disable-shared \
             --extra-ldflags="-static -static-libgcc -static-libstdc++" \
             --pkg-config-flags=--static \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
-            --enable-encoder=gif \
-            --enable-muxer=gif,image2 \
-            --enable-demuxer=ass,ssa,srt,vtt,webvtt,pgssub,hdmv_pgs_subtitle,dvdsub,mov_text \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles,libplacebo \
+            --enable-encoder=gif,libwebp \
+            --enable-muxer=gif,image2,webp \
+            --enable-demuxer=ass,ssa,srt,vtt,webvtt,pgssub,hdmv_pgs_subtitle,dvdsub,mov_text,webp \
+            --enable-decoder=ass,ssa,subrip,webvtt,pgssub,dvdsub,hdmv_pgs_subtitle,webp \
             --enable-parser=ass,webvtt \
-            --enable-decoder=ass,ssa,subrip,webvtt,pgssub,dvdsub,hdmv_pgs_subtitle \
             --enable-protocol=file
 
       - name: Build
