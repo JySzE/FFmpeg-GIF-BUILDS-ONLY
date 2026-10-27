@@ -26,10 +26,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 MINGW64
+      - name: Setup MSYS2 UCRT64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           install: >-
             base-devel
@@ -39,46 +39,30 @@ jobs:
             nasm
             pkg-config
             zip
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-binutils
-            mingw-w64-x86_64-libass
-            mingw-w64-x86_64-freetype
-            mingw-w64-x86_64-pcre2
-            mingw-w64-x86_64-libwebp
-            mingw-w64-x86_64-lcms2
-            mingw-w64-x86_64-zimg
-            mingw-w64-x86_64-python
-            mingw-w64-x86_64-python-pip
-            mingw-w64-x86_64-python-setuptools
-            mingw-w64-x86_64-python-wheel
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-meson
-            mingw-w64-x86_64-ninja
-
-      - name: Verify toolchain and zimg
-        shell: msys2 {0}
-        env:
-          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /mingw64
-        run: |
-          set -e
-          which x86_64-w64-mingw32-gcc
-          x86_64-w64-mingw32-gcc --version
-          pkg-config --modversion libass
-          pkg-config --modversion libzimg
-          ls /mingw64/lib | grep -i zimg || true
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-libass
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-pcre2
+            mingw-w64-ucrt-x86_64-libwebp
+            mingw-w64-ucrt-x86_64-lcms2
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+            mingw-w64-ucrt-x86_64-python-setuptools
+            mingw-w64-ucrt-x86_64-python-wheel
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-meson
+            mingw-w64-ucrt-x86_64-ninja
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
-          PATH: /mingw64/bin:/usr/bin:$PATH
-          PKG_CONFIG: /mingw64/bin/pkg-config
-          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /mingw64
-          CPPFLAGS: -I/mingw64/include
-          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
+          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          CPPFLAGS: -I/ucrt64/include
+          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -89,7 +73,6 @@ jobs:
             --enable-gpl \
             --enable-libass \
             --enable-libwebp \
-            --enable-libzimg \
             --enable-ffmpeg \
             --enable-ffprobe \
             --disable-doc \
@@ -98,9 +81,9 @@ jobs:
             --enable-static \
             --disable-shared \
             --pkg-config-flags=--static \
-            --extra-cflags="-I/mingw64/include" \
-            --extra-ldflags="-L/mingw64/lib -static -static-libgcc -static-libstdc++" \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles,zscale \
+            --extra-cflags="-I/ucrt64/include" \
+            --extra-ldflags="-L/ucrt64/lib -static -static-libgcc -static-libstdc++" \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
             --enable-parser=ass,webvtt \
@@ -109,36 +92,31 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PATH: /mingw64/bin:/usr/bin:$PATH
-          PKG_CONFIG: /mingw64/bin/pkg-config
-          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /mingw64
-          CPPFLAGS: -I/mingw64/include
-          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
+          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          CPPFLAGS: -I/ucrt64/include
+          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify output and zscale availability
+      - name: Verify output
         shell: msys2 {0}
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe ffprobe.exe
           ./ffmpeg.exe -hide_banner -version | head -n 20
-          ./ffmpeg.exe -hide_banner -filters | grep -E "scale|zscale" || true
-          objdump -p ffmpeg.exe | grep -i "DLL Name" || true
 
-      - name: Strip and package artifacts
+      - name: Package artifacts
         shell: msys2 {0}
         run: |
           set -e
-          cd "$GITHUB_WORKSPACE"
-          strip ffmpeg.exe ffprobe.exe || true
           mkdir -p artifacts
-          zip artifacts/ffmpeg-win64-static-zimg.zip ffmpeg.exe ffprobe.exe
+          zip artifacts/ffmpeg-win64-static.zip ffmpeg.exe ffprobe.exe
 
       - name: Release raw exe / zip files
         uses: softprops/action-gh-release@v2
@@ -148,6 +126,7 @@ jobs:
           tag_name: ffmpeg-win-static-${{ github.run_number }}
           name: FFmpeg Windows Static Build ${{ github.run_number }}
           files: |
-            artifacts/ffmpeg-win64-static-zimg.zip
+            artifacts/ffmpeg-win64-static.zip
             ffmpeg.exe
             ffprobe.exe
+
