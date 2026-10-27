@@ -43,31 +43,24 @@ jobs:
             mingw-w64-ucrt-x86_64-libplacebo
             mingw-w64-ucrt-x86_64-libwebp
 
-      - name: Verify UCRT64 toolchain and pkg-config resolution
+      - name: Verify pkg-config and libs
         shell: msys2 {0}
         run: |
           echo "PATH=$PATH"
-          echo "PKG_CONFIG=${PKG_CONFIG:-unset}"
-          which x86_64-w64-mingw32-gcc
-          x86_64-w64-mingw32-gcc --version
-          echo "--- libplacebo pkg-config ---"
-          /ucrt64/bin/pkg-config --modversion libplacebo
-          /ucrt64/bin/pkg-config --cflags --libs libplacebo
-          echo "--- libwebp pkg-config ---"
-          /ucrt64/bin/pkg-config --modversion libwebp
-          /ucrt64/bin/pkg-config --cflags --libs libwebp
-          echo "--- libass pkg-config ---"
-          /ucrt64/bin/pkg-config --modversion libass
-          /ucrt64/bin/pkg-config --cflags --libs libass
-          echo "--- direct library checks ---"
+          which pkg-config || true
+          ls -l /usr/bin/pkg-config || true
+          ls -l /ucrt64/bin/pkg-config || true
+          pkg-config --version || true
+          pkg-config --modversion libplacebo || true
+          pkg-config --modversion libwebp || true
+          pkg-config --modversion libass || true
           ls -l /ucrt64/lib/pkgconfig/libplacebo.pc || true
           ls -l /ucrt64/lib/pkgconfig/libwebp.pc || true
-          ls -l /ucrt64/lib | grep -i "placebo\|webp\|ass" || true
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG: pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           PKG_CONFIG_SYSROOT_DIR: /ucrt64
@@ -76,11 +69,8 @@ jobs:
           PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
-
-          echo "Using pkg-config:"
-          /ucrt64/bin/pkg-config --modversion libplacebo
-          /ucrt64/bin/pkg-config --modversion libwebp
-
+          pkg-config --modversion libplacebo
+          pkg-config --modversion libwebp
           ./configure \
             --arch=x86_64 \
             --target-os=mingw32 \
@@ -106,7 +96,7 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG: pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           PKG_CONFIG_SYSROOT_DIR: /ucrt64
