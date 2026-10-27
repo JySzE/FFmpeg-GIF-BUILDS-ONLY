@@ -60,8 +60,8 @@ jobs:
         env:
           PATH: /ucrt64/bin:/usr/bin:$PATH
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -94,7 +94,11 @@ jobs:
           meson compile -C deps/libplacebo-build
           meson install -C deps/libplacebo-build
 
-          echo "Checking static libplacebo metadata..."
+          echo "Checking libplacebo installation"
+          ls -la /opt/libplacebo-static/lib/pkgconfig || true
+          test -f /opt/libplacebo-static/lib/pkgconfig/libplacebo.pc
+
+          echo "Validating libplacebo version via pkg-config"
           PKG_CONFIG_PATH=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
           PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
           pkg-config --static --modversion libplacebo
@@ -105,12 +109,18 @@ jobs:
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
           CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
           LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
+
+          echo "pkg-config debug check for libplacebo:"
+          PKG_CONFIG_PATH=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          pkg-config --debug --modversion libplacebo 2>&1 || true
 
           ./configure \
             --arch=x86_64 \
