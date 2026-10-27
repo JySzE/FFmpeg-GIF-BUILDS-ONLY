@@ -22,10 +22,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 UCRT64
+      - name: Setup MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           suppress-deprecation-warnings: true
           install: >-
@@ -35,13 +35,13 @@ jobs:
             gcc
             nasm
             pkg-config
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-binutils
-            mingw-w64-ucrt-x86_64-libass
-            mingw-w64-ucrt-x86_64-freetype
-            mingw-w64-ucrt-x86_64-pcre2
-            mingw-w64-ucrt-x86_64-libplacebo
-            mingw-w64-ucrt-x86_64-libwebp
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-libass
+            mingw-w64-x86_64-freetype
+            mingw-w64-x86_64-pcre2
+            mingw-w64-x86_64-libplacebo
+            mingw-w64-x86_64-libwebp
 
       - name: Verify toolchain and static libs
         shell: msys2 {0}
@@ -51,20 +51,20 @@ jobs:
           pkg-config --modversion libass
           pkg-config --modversion libplacebo
           pkg-config --modversion libwebp
-          ls /ucrt64/lib | grep libass || true
-          ls /ucrt64/lib | grep libplacebo || true
-          ls /ucrt64/lib | grep "libwebp.*\.a" || true
+          ls /mingw64/lib | grep libass || true
+          ls /mingw64/lib | grep libplacebo || true
+          ls /mingw64/lib | grep "libwebp.*\.a" || true
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /mingw64/bin/pkg-config
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
+          PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           ./configure \
@@ -84,7 +84,7 @@ jobs:
             --extra-ldflags="-static -static-libgcc -static-libstdc++" \
             --pkg-config-flags=--static \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles,libplacebo \
-            --enable-encoder=gif,libwebp \
+            --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
             --enable-demuxer=ass,ssa,srt,vtt,webvtt,pgssub,hdmv_pgs_subtitle,dvdsub,mov_text,webp \
             --enable-decoder=ass,ssa,subrip,webvtt,pgssub,dvdsub,hdmv_pgs_subtitle,webp \
@@ -94,13 +94,13 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /mingw64/bin/pkg-config
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
+          PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
