@@ -70,8 +70,10 @@ jobs:
           mkdir -p deps
 
           if [ ! -d deps/libplacebo/.git ]; then
-            git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/haasn/libplacebo.git deps/libplacebo
+            git clone --depth 1 --branch v7.349.0 --recurse-submodules --shallow-submodules https://github.com/haasn/libplacebo.git deps/libplacebo
           else
+            git -C deps/libplacebo fetch --tags --depth 1 origin
+            git -C deps/libplacebo checkout v7.349.0
             git -C deps/libplacebo submodule sync --recursive
             git -C deps/libplacebo submodule update --init --recursive --depth 1
           fi
@@ -89,7 +91,7 @@ jobs:
             -Ddefault_library=static \
             -Dshaderc=enabled \
             -Dvulkan=enabled \
-            -Dlcms2=enabled
+            -Dlcms=enabled
 
           meson compile -C deps/libplacebo-build
           meson install -C deps/libplacebo-build
