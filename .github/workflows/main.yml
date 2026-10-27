@@ -43,14 +43,8 @@ jobs:
             mingw-w64-ucrt-x86_64-libass
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
-            mingw-w64-ucrt-x86_64-shaderc
-            mingw-w64-ucrt-x86_64-vulkan
-            mingw-w64-ucrt-x86_64-vulkan-loader
-            mingw-w64-ucrt-x86_64-lcms2
             mingw-w64-ucrt-x86_64-libwebp
-            mingw-w64-ucrt-x86_64-libdovi
-            mingw-w64-ucrt-x86_64-spirv-cross
-            mingw-w64-ucrt-x86_64-libplacebo
+            mingw-w64-ucrt-x86_64-lcms2
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
             mingw-w64-ucrt-x86_64-python-setuptools
@@ -58,16 +52,6 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
-
-      - name: Install exact libplacebo package
-        shell: msys2 {0}
-        run: |
-          set -euxo pipefail
-          curl -L --fail --retry 3 \
-            -o /tmp/mingw-w64-ucrt-x86_64-libplacebo-7.351.0-1-any.pkg.tar.zst \
-            https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libplacebo-7.351.0-1-any.pkg.tar.zst
-          pacman -U --noconfirm /tmp/mingw-w64-ucrt-x86_64-libplacebo-7.351.0-1-any.pkg.tar.zst
-          pkg-config --modversion libplacebo
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
@@ -87,7 +71,6 @@ jobs:
             --target-os=mingw32 \
             --enable-gpl \
             --enable-libass \
-            --enable-libplacebo \
             --enable-libwebp \
             --enable-ffmpeg \
             --enable-ffprobe \
@@ -99,7 +82,7 @@ jobs:
             --pkg-config-flags=--static \
             --extra-cflags="-I/ucrt64/include" \
             --extra-ldflags="-L/ucrt64/lib -static -static-libgcc -static-libstdc++" \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles,libplacebo \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
             --enable-parser=ass,webvtt \
@@ -126,7 +109,6 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe ffprobe.exe
           ./ffmpeg.exe -hide_banner -version | head -n 20
-          ./ffmpeg.exe -hide_banner -filters | grep placebo || true
 
       - name: Package artifacts
         shell: msys2 {0}
