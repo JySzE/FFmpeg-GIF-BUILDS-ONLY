@@ -31,7 +31,6 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          suppress-deprecation-warnings: true
           install: >-
             base-devel
             git
@@ -45,6 +44,7 @@ jobs:
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
             mingw-w64-ucrt-x86_64-shaderc
+            mingw-w64-ucrt-x86_64-vulkan
             mingw-w64-ucrt-x86_64-vulkan-loader
             mingw-w64-ucrt-x86_64-libwebp
             mingw-w64-ucrt-x86_64-python
@@ -55,13 +55,14 @@ jobs:
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
 
-      - name: Build static libplacebo
+      - name: Build libplacebo in the same toolchain
         shell: msys2 {0}
         env:
           PATH: /ucrt64/bin:/usr/bin:$PATH
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -75,16 +76,14 @@ jobs:
             git -C deps/libplacebo submodule update --init --recursive --depth 1
           fi
 
-          mkdir -p /opt
-
           if [ -d deps/libplacebo-build ]; then
-            meson setup --wipe deps/libplacebo-build
+            meson setup --wipe deps/libplacebo-build || true
           fi
 
           meson setup \
             deps/libplacebo-build \
             deps/libplacebo \
-            --prefix /opt/libplacebo-static \
+            --prefix /ucrt64 \
             --libdir lib \
             --buildtype release \
             -Ddefault_library=static \
@@ -94,32 +93,25 @@ jobs:
           meson compile -C deps/libplacebo-build
           meson install -C deps/libplacebo-build
 
-          echo "Checking libplacebo installation"
-          ls -la /opt/libplacebo-static/lib/pkgconfig || true
-          test -f /opt/libplacebo-static/lib/pkgconfig/libplacebo.pc
-
-          echo "Validating libplacebo version via pkg-config"
-          PKG_CONFIG_PATH=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
-          PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          echo "libplacebo pkg-config check"
           pkg-config --static --modversion libplacebo
+          pkg-config --static --cflags --libs libplacebo
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /
-          CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
-          LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
+          CPPFLAGS: -I/ucrt64/include
+          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
 
-          echo "pkg-config debug check for libplacebo:"
-          PKG_CONFIG_PATH=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
-          PKG_CONFIG_LIBDIR=/opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig \
+          echo "pkg-config debug output:"
           pkg-config --debug --modversion libplacebo 2>&1 || true
 
           ./configure \
@@ -136,8 +128,9 @@ jobs:
             --disable-debug \
             --enable-static \
             --disable-shared \
-            --extra-ldflags="-static -static-libgcc -static-libstdc++" \
             --pkg-config-flags=--static \
+            --extra-cflags="-I/ucrt64/include" \
+            --extra-ldflags="-L/ucrt64/lib -static -static-libgcc -static-libstdc++" \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles,libplacebo \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
@@ -147,12 +140,13 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /opt/libplacebo-static/lib/pkgconfig:/ucrt64/lib/pkgconfig
-          CPPFLAGS: -I/opt/libplacebo-static/include -I/ucrt64/include
-          LDFLAGS: -L/opt/libplacebo-static/lib -L/ucrt64/lib -static -static-libgcc -static-libstdc++
           PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /
+          CPPFLAGS: -I/ucrt64/include
+          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
