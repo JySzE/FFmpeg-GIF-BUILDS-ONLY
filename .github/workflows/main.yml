@@ -55,8 +55,24 @@ jobs:
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
 
+      - name: Ensure zimg is installed and visible to pkg-config
+        shell: msys2 {0}
+        env:
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /ucrt64
+        run: |
+          set -e
+          pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-zimg
+          pkg-config --modversion libzimg
+          ls /ucrt64/lib | grep -i zimg || true
+
       - name: Verify toolchain and zimg
         shell: msys2 {0}
+        env:
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /ucrt64
         run: |
           set -e
           which x86_64-w64-mingw32-gcc
