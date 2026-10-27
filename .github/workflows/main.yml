@@ -22,10 +22,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 UCRT64
+      - name: Setup MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           suppress-deprecation-warnings: true
           install: >-
@@ -35,42 +35,38 @@ jobs:
             gcc
             nasm
             pkg-config
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-binutils
-            mingw-w64-ucrt-x86_64-libass
-            mingw-w64-ucrt-x86_64-freetype
-            mingw-w64-ucrt-x86_64-pcre2
-            mingw-w64-ucrt-x86_64-libplacebo
-            mingw-w64-ucrt-x86_64-libwebp
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-libass
+            mingw-w64-x86_64-freetype
+            mingw-w64-x86_64-pcre2
+            mingw-w64-x86_64-libplacebo
+            mingw-w64-x86_64-libwebp
 
-      - name: Verify pkg-config and libs
+      - name: Verify toolchain and libraries
         shell: msys2 {0}
         run: |
-          echo "PATH=$PATH"
-          which pkg-config || true
-          ls -l /usr/bin/pkg-config || true
-          ls -l /ucrt64/bin/pkg-config || true
-          pkg-config --version || true
-          pkg-config --modversion libplacebo || true
-          pkg-config --modversion libwebp || true
-          pkg-config --modversion libass || true
-          ls -l /ucrt64/lib/pkgconfig/libplacebo.pc || true
-          ls -l /ucrt64/lib/pkgconfig/libwebp.pc || true
+          which x86_64-w64-mingw32-gcc
+          x86_64-w64-mingw32-gcc --version
+          pkg-config --modversion libass
+          pkg-config --modversion libplacebo
+          pkg-config --modversion libwebp
+          ls /mingw64/lib | grep libass || true
+          ls /mingw64/lib | grep libplacebo || true
+          ls /mingw64/lib | grep "libwebp.*\\.a" || true
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /mingw64/bin/pkg-config
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
+          PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
-          pkg-config --modversion libplacebo
-          pkg-config --modversion libwebp
           ./configure \
             --arch=x86_64 \
             --target-os=mingw32 \
@@ -96,13 +92,13 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PKG_CONFIG: pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /mingw64/bin/pkg-config
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
+          PATH: /mingw64/bin:/usr/bin:$PATH
         run: |
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
@@ -112,7 +108,7 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe ffprobe.exe
-          ./ffmpeg.exe -hide_banner -version | head -n 30
+          ./ffmpeg.exe -hide_banner -version | head -n 20
           ./ffprobe.exe -hide_banner -version | head -n 20
           ./ffmpeg.exe -hide_banner -encoders | grep -iE "gif|webp|libwebp" || true
           ./ffmpeg.exe -hide_banner -decoders | grep -iE "h264|hevc|vp9|av1|ass|subrip|webvtt|webp" | head -n 40 || true
