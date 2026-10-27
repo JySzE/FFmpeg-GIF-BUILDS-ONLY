@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source
@@ -22,84 +22,159 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 UCRT64
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          suppress-deprecation-warnings: true
-          install: >-
-            base-devel
-            git
-            make
-            gcc
-            nasm
-            pkg-config
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-binutils
-            mingw-w64-ucrt-x86_64-libass
-            mingw-w64-ucrt-x86_64-freetype
-            mingw-w64-ucrt-x86_64-pcre2
-            mingw-w64-ucrt-x86_64-libwebp
-
-      - name: Verify pkg-config state
-        shell: msys2 {0}
+      - name: Install MinGW cross toolchain and build deps
+        shell: bash
         run: |
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libwebp
-          PKG_CONFIG_LIBDIR=/ucrt64/lib/pkgconfig pkg-config --modversion libass
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            curl \
+            git \
+            pkg-config \
+            yasm \
+            nasm \
+            mingw-w64 \
+            meson \
+            ninja-build \
+            libtool \
+            autoconf \
+            automake \
+            libass-dev \
+            libfreetype6-dev \
+            libpcre2-dev \
+            libwebp-dev \
+            zlib1g-dev
+
+      - name: Find MinGW cross file
+        shell: bash
+        id: mingw_cross
+        run: |
+          set -e
+          CROSS_FILE="$(find /usr /etc -type f 2>/dev/null | grep -E 'mingw.*(ini|cfg)$|cross.*(ini|cfg)$' | head -n 1 || true)"
+          if [ -z "$CROSS_FILE" ]; then
+            echo "Could not find MinGW Meson cross file" >&2
+            exit 1
+          fi
+          echo "cross_file=$CROSS_FILE" >> "$GITHUB_OUTPUT"
+          echo "Using cross file: $CROSS_FILE"
+
+      - name: Build libplacebo for MinGW
+        shell: bash
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p deps
+          cd deps
+          if [ ! -d libplacebo ]; then
+            git clone --depth=1 https://github.com/haasn/libplacebo.git
+          fi
+          cd libplacebo
+          meson setup build \
+            --cross-file "${{ steps.mingw_cross.outputs.cross_file }}" \
+            --prefix /usr/x86_64-w64-mingw32 \
+            --default-library static \
+            -Dopengl=disabled \
+            -Dshaderc=disabled \
+            -Dxxhash=enabled
+          meson compile -C build
+          meson install -C build
+
+      - name: Verify MinGW libs and pkg-config
+        shell: bash
+        run: |
+          set -e
+          which x86_64-w64-mingw32-gcc
+          x86_64-w64-mingw32-gcc --version
+          x86_64-w64-mingw32-pkg-config --modversion libwebp
+          x86_64-w64-mingw32-pkg-config --modversion libass
+          ls -l /usr/x86_64-w64-mingw32/lib/pkgconfig || true
+          ls -l /usr/x86_64-w64-mingw32/lib | grep -iE "placebo|ass|webp" || true
 
       - name: Configure FFmpeg static build
-        shell: msys2 {0}
+        shell: bash
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: x86_64-w64-mingw32-pkg-config
+          PKG_CONFIG_PATH: /usr/x86_64-w64-mingw32/lib/pkgconfig:/usr/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /usr/x86_64-w64-mingw32/lib/pkgconfig:/usr/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /usr/x86_64-w64-mingw32
+          CPPFLAGS: -I/usr/x86_64-w64-mingw32/include
+          LDFLAGS: -L/usr/x86_64-w64-mingw32/lib -static
+          PATH: /usr/x86_64-w64-mingw32/bin:/usr/bin:$PATH
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
+
+          echo "PKG_CONFIG=$PKG_CONFIG"
+          x86_64-w64-mingw32-pkg-config --modversion libplacebo || true
+          x86_64-w64-mingw32-pkg-config --modversion libwebp || true
 
           ./configure \
             --arch=x86_64 \
             --target-os=mingw32 \
+            --cross-prefix=x86_64-w64-mingw32- \
             --enable-gpl \
-            --enable-libass \
-            --enable-libwebp \
             --enable-ffmpeg \
             --enable-ffprobe \
             --disable-doc \
             --disable-ffplay \
             --disable-debug \
+            --disable-network \
+            --disable-autodetect \
+            --disable-everything \
             --enable-static \
             --disable-shared \
             --extra-ldflags="-static -static-libgcc -static-libstdc++" \
             --pkg-config-flags=--static \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
-            --enable-encoder=gif,webp,libwebp \
+            --enable-protocol=file \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles,libplacebo \
+            --enable-parser=ass,webvtt,h264,hevc,vp8,vp9,av1,mpegvideo,mpeg4video \
+            --enable-demuxer=matroska,webm,mp4,mov,avi,mpegts,mpegps,flv,asf,ogv,mjpeg,ass,ssa,srt,vtt,webvtt,pgssub,hdmv_pgs_subtitle,dvdsub,mov_text,webp \
+            --enable-decoder=h264,hevc,vp8,vp9,av1,mpeg2video,mpeg4,msmpeg4v1,msmpeg4v2,msmpeg4v3,vc1,wmv3,mjpeg,prores,webp,ass,ssa,subrip,webvtt,pgssub,dvdsub,hdmv_pgs_subtitle,ffv1 \
+            --enable-encoder=gif,webp,libwebp,ffv1 \
             --enable-muxer=gif,image2,webp \
-            --enable-parser=ass,webvtt \
-            --enable-protocol=file
+            --enable-libass \
+            --enable-libplacebo \
+            --enable-libwebp
 
-      - name: Build
-        shell: msys2 {0}
+      - name: Build FFmpeg
+        shell: bash
         env:
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
-          PATH: /ucrt64/bin:/usr/bin:$PATH
+          PKG_CONFIG: x86_64-w64-mingw32-pkg-config
+          PKG_CONFIG_PATH: /usr/x86_64-w64-mingw32/lib/pkgconfig:/usr/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /usr/x86_64-w64-mingw32/lib/pkgconfig:/usr/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /usr/x86_64-w64-mingw32
+          CPPFLAGS: -I/usr/x86_64-w64-mingw32/include
+          LDFLAGS: -L/usr/x86_64-w64-mingw32/lib -static
+          PATH: /usr/x86_64-w64-mingw32/bin:/usr/bin:$PATH
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
       - name: Verify output
-        shell: msys2 {0}
+        shell: bash
         run: |
+          set -e
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe ffprobe.exe
+          file ffmpeg.exe ffprobe.exe
           ./ffmpeg.exe -hide_banner -version | head -n 20
+          ./ffprobe.exe -hide_banner -version | head -n 20
+          ./ffmpeg.exe -hide_banner -encoders | grep -iE "gif|webp|libwebp|ffv1" || true
+          ./ffmpeg.exe -hide_banner -decoders | grep -iE "h264|hevc|vp9|av1|ass|subrip|webvtt|webp|ffv1" | head -n 40 || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-win-static
+          path: |
+            ffmpeg.exe
+            ffprobe.exe
 
       - name: Release raw exe files
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
