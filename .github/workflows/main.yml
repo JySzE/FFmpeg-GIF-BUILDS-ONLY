@@ -26,10 +26,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup MSYS2 UCRT64
+      - name: Setup MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           install: >-
             base-devel
@@ -39,58 +39,46 @@ jobs:
             nasm
             pkg-config
             zip
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-binutils
-            mingw-w64-ucrt-x86_64-libass
-            mingw-w64-ucrt-x86_64-freetype
-            mingw-w64-ucrt-x86_64-pcre2
-            mingw-w64-ucrt-x86_64-libwebp
-            mingw-w64-ucrt-x86_64-lcms2
-            mingw-w64-ucrt-x86_64-zimg
-            mingw-w64-ucrt-x86_64-python
-            mingw-w64-ucrt-x86_64-python-pip
-            mingw-w64-ucrt-x86_64-python-setuptools
-            mingw-w64-ucrt-x86_64-python-wheel
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-meson
-            mingw-w64-ucrt-x86_64-ninja
-
-      - name: Ensure zimg is installed and visible to pkg-config
-        shell: msys2 {0}
-        env:
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-        run: |
-          set -e
-          pacman --noconfirm -S --needed mingw-w64-ucrt-x86_64-zimg
-          pkg-config --modversion libzimg
-          ls /ucrt64/lib | grep -i zimg || true
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-libass
+            mingw-w64-x86_64-freetype
+            mingw-w64-x86_64-pcre2
+            mingw-w64-x86_64-libwebp
+            mingw-w64-x86_64-lcms2
+            mingw-w64-x86_64-zimg
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-python-pip
+            mingw-w64-x86_64-python-setuptools
+            mingw-w64-x86_64-python-wheel
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
 
       - name: Verify toolchain and zimg
         shell: msys2 {0}
         env:
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
         run: |
           set -e
           which x86_64-w64-mingw32-gcc
           x86_64-w64-mingw32-gcc --version
           pkg-config --modversion libass
           pkg-config --modversion libzimg
-          ls /ucrt64/lib | grep -i zimg || true
+          ls /mingw64/lib | grep -i zimg || true
 
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
-          PATH: /ucrt64/bin:/usr/bin:$PATH
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
+          PATH: /mingw64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /mingw64/bin/pkg-config
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -110,8 +98,8 @@ jobs:
             --enable-static \
             --disable-shared \
             --pkg-config-flags=--static \
-            --extra-cflags="-I/ucrt64/include" \
-            --extra-ldflags="-L/ucrt64/lib -static -static-libgcc -static-libstdc++" \
+            --extra-cflags="-I/mingw64/include" \
+            --extra-ldflags="-L/mingw64/lib -static -static-libgcc -static-libstdc++" \
             --enable-filter=scale,fps,palettegen,paletteuse,subtitles,zscale \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
@@ -121,13 +109,13 @@ jobs:
       - name: Build
         shell: msys2 {0}
         env:
-          PATH: /ucrt64/bin:/usr/bin:$PATH
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /ucrt64
-          CPPFLAGS: -I/ucrt64/include
-          LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
+          PATH: /mingw64/bin:/usr/bin:$PATH
+          PKG_CONFIG: /mingw64/bin/pkg-config
+          PKG_CONFIG_PATH: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /mingw64/lib/pkgconfig:/mingw64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /mingw64
+          CPPFLAGS: -I/mingw64/include
+          LDFLAGS: -L/mingw64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
