@@ -46,6 +46,7 @@ jobs:
             mingw-w64-ucrt-x86_64-pcre2
             mingw-w64-ucrt-x86_64-libwebp
             mingw-w64-ucrt-x86_64-lcms2
+            mingw-w64-ucrt-x86_64-zimg
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
             mingw-w64-ucrt-x86_64-python-setuptools
@@ -54,13 +55,24 @@ jobs:
             mingw-w64-ucrt-x86_64-meson
             mingw-w64-ucrt-x86_64-ninja
 
+      - name: Verify toolchain and zimg
+        shell: msys2 {0}
+        run: |
+          set -e
+          which x86_64-w64-mingw32-gcc
+          x86_64-w64-mingw32-gcc --version
+          pkg-config --modversion libass
+          pkg-config --modversion libzimg
+          ls /ucrt64/lib | grep -i zimg || true
+
       - name: Configure FFmpeg static build
         shell: msys2 {0}
         env:
           PATH: /ucrt64/bin:/usr/bin:$PATH
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /ucrt64
           CPPFLAGS: -I/ucrt64/include
           LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
@@ -73,6 +85,7 @@ jobs:
             --enable-gpl \
             --enable-libass \
             --enable-libwebp \
+            --enable-libzimg \
             --enable-ffmpeg \
             --enable-ffprobe \
             --disable-doc \
@@ -83,7 +96,7 @@ jobs:
             --pkg-config-flags=--static \
             --extra-cflags="-I/ucrt64/include" \
             --extra-ldflags="-L/ucrt64/lib -static -static-libgcc -static-libstdc++" \
-            --enable-filter=scale,fps,palettegen,paletteuse,subtitles \
+            --enable-filter=scale,fps,palettegen,paletteuse,subtitles,zscale \
             --enable-encoder=gif,webp,libwebp \
             --enable-muxer=gif,image2,webp \
             --enable-parser=ass,webvtt \
@@ -94,8 +107,9 @@ jobs:
         env:
           PATH: /ucrt64/bin:/usr/bin:$PATH
           PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          PKG_CONFIG_SYSROOT_DIR: /ucrt64
           CPPFLAGS: -I/ucrt64/include
           LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
@@ -103,20 +117,24 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           make -j"$(nproc)"
 
-      - name: Verify output
+      - name: Verify output and zscale availability
         shell: msys2 {0}
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
           ls -l ffmpeg.exe ffprobe.exe
           ./ffmpeg.exe -hide_banner -version | head -n 20
+          ./ffmpeg.exe -hide_banner -filters | grep -E "scale|zscale" || true
+          objdump -p ffmpeg.exe | grep -i "DLL Name" || true
 
-      - name: Package artifacts
+      - name: Strip and package artifacts
         shell: msys2 {0}
         run: |
           set -e
+          cd "$GITHUB_WORKSPACE"
+          strip ffmpeg.exe ffprobe.exe || true
           mkdir -p artifacts
-          zip artifacts/ffmpeg-win64-static.zip ffmpeg.exe ffprobe.exe
+          zip artifacts/ffmpeg-win64-static-zimg.zip ffmpeg.exe ffprobe.exe
 
       - name: Release raw exe / zip files
         uses: softprops/action-gh-release@v2
@@ -126,6 +144,6 @@ jobs:
           tag_name: ffmpeg-win-static-${{ github.run_number }}
           name: FFmpeg Windows Static Build ${{ github.run_number }}
           files: |
-            artifacts/ffmpeg-win64-static.zip
+            artifacts/ffmpeg-win64-static-zimg.zip
             ffmpeg.exe
             ffprobe.exe
