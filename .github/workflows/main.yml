@@ -46,6 +46,7 @@ jobs:
             mingw-w64-ucrt-x86_64-shaderc
             mingw-w64-ucrt-x86_64-vulkan
             mingw-w64-ucrt-x86_64-vulkan-loader
+            mingw-w64-ucrt-x86_64-lcms2
             mingw-w64-ucrt-x86_64-libwebp
             mingw-w64-ucrt-x86_64-python
             mingw-w64-ucrt-x86_64-python-pip
@@ -62,7 +63,6 @@ jobs:
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
@@ -88,7 +88,8 @@ jobs:
             --buildtype release \
             -Ddefault_library=static \
             -Dshaderc=enabled \
-            -Dvulkan=enabled
+            -Dvulkan=enabled \
+            -Dlcms2=enabled
 
           meson compile -C deps/libplacebo-build
           meson install -C deps/libplacebo-build
@@ -104,15 +105,11 @@ jobs:
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /
           CPPFLAGS: -I/ucrt64/include
           LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
-
-          echo "pkg-config debug output:"
-          pkg-config --debug --modversion libplacebo 2>&1 || true
 
           ./configure \
             --arch=x86_64 \
@@ -144,7 +141,6 @@ jobs:
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: /ucrt64/lib/pkgconfig
-          PKG_CONFIG_SYSROOT_DIR: /
           CPPFLAGS: -I/ucrt64/include
           LDFLAGS: -L/ucrt64/lib -static -static-libgcc -static-libstdc++
         run: |
