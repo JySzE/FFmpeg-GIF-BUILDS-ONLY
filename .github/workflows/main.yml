@@ -35,15 +35,11 @@ jobs:
             base-devel
             git
             make
-            gcc
-            g++
             nasm
             pkg-config
             zip
             upx
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-g++
-            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-toolchain
             mingw-w64-ucrt-x86_64-libass
             mingw-w64-ucrt-x86_64-freetype
             mingw-w64-ucrt-x86_64-pcre2
